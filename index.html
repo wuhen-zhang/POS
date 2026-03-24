@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🧸 LITTLE NOOK POS (Firebase Auth 專業版)</title>
+    <title>🧸 LITTLE NOOK POS (Firebase 雲端專業版)</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -13,49 +13,59 @@
     <style>
         :root { --main-brown: #b0a496; --bg-cream: #fcf8f5; --accent-brown: #8c7b6c; --price-red: #d9534f; --profit-green: #6b8e23; }
         body { font-family: sans-serif; background: var(--bg-cream); margin: 0; display: flex; flex-direction: column; height: 100vh; color: #5d5246; overflow: hidden; }
+        
+        /* Header & Nav */
         header { background: var(--main-brown); color: white; padding: 12px; text-align: center; font-size: 1.3em; font-weight: bold; flex-shrink: 0; position: relative; }
-        .nav-bar { background: #e8e0d9; padding: 10px; display: flex; gap: 10px; overflow-x: auto; border-bottom: 2px solid #d1c7bc; flex-shrink: 0; align-items: center; }
-        .nav-btn { background: white; border: 1px solid #d1c7bc; padding: 8px 18px; border-radius: 20px; white-space: nowrap; cursor: pointer; font-size: 1.1em; }
-        .sync-btn { background: #ff9800; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; margin-left: auto; }
+        .user-tag { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.65em; color: #fff; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 20px; }
+        .logout-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #fff2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 5px 12px; border-radius: 10px; font-size: 0.6em; cursor: pointer; }
+        .nav-bar { background: #e8e0d9; padding: 10px; display: flex; gap: 10px; overflow-x: auto; border-bottom: 2px solid #d1c7bc; flex-shrink: 0; }
+        .nav-btn { background: white; border: 1px solid #d1c7bc; padding: 8px 18px; border-radius: 20px; white-space: nowrap; cursor: pointer; }
+
+        /* Main Content */
         .main-content { display: flex; flex: 1; overflow: hidden; padding: 10px; gap: 10px; }
         .item-area { flex: 1.8; overflow-y: auto; background: white; border-radius: 15px; padding: 15px; border: 2px solid #e8e0d9; }
-        .cat-title { background: #fdf5f0; padding: 8px 15px; border-radius: 20px; margin: 15px 0 8px; font-weight: bold; border-left: 8px solid var(--main-brown); font-size: 1.2em; }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 10px; }
-        .p-btn { background: white; border: 1px solid #f0e6dd; border-radius: 12px; padding: 10px 5px; text-align: center; cursor: pointer; box-shadow: 2px 2px 0 #e8e0d9; min-height: 90px; display: flex; flex-direction: column; justify-content: center; }
-        .p-name { font-size: 0.85em; font-weight: bold; margin-bottom: 5px; height: 2.8em; overflow: hidden; line-height: 1.4; }
-        .p-price { color: #c2966d; font-size: 1.2em; font-weight: bold; }
-        .p-stock { font-size: 0.8em; color: #999; }
-        .checkout-area { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 320px; overflow-y: auto; }
+        .cat-title { background: #fdf5f0; padding: 8px 15px; border-radius: 20px; margin: 15px 0 8px; font-weight: bold; border-left: 8px solid var(--main-brown); }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+        .p-btn { background: white; border: 1px solid #f0e6dd; border-radius: 12px; padding: 10px; text-align: center; cursor: pointer; box-shadow: 2px 2px 0 #e8e0d9; }
+        .p-name { font-size: 0.9em; font-weight: bold; margin-bottom: 5px; height: 2.8em; overflow: hidden; }
+        .p-price { color: #c2966d; font-size: 1.1em; font-weight: bold; }
+        
+        /* Checkout Area */
+        .checkout-area { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 320px; }
         .card { background: white; border-radius: 15px; padding: 12px; border: 2px solid #e8e0d9; }
-        #cart-list { max-height: 200px; overflow-y: auto; border-bottom: 2px dashed #e8e0d9; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 5px; font-size: 1.1em; border-bottom: 1px solid #eee; }
-        .big-input { font-size: 1.8em; padding: 12px; width: 100%; border-radius: 10px; border: 2px solid #d1c7bc; text-align: right; box-sizing: border-box; background: #fffcf5; font-weight: bold; }
-        .total-display { font-size: 3.2em; font-weight: bold; color: var(--price-red); text-align: right; margin: 10px 0; }
-        .pay-btn { flex: 1; padding: 15px; border-radius: 10px; border: 1px solid #ccc; background: white; cursor: pointer; font-weight: bold; font-size: 1.3em;}
-        .pay-btn.active { background: var(--accent-brown); color: white; border-color: var(--accent-brown); }
-        #admin-panel, #history-panel { position: fixed; inset: 10px; background: white; z-index: 1000; border-radius: 20px; display: none; flex-direction: column; padding: 15px; border: 3px solid var(--main-brown); box-shadow: 0 0 50px rgba(0,0,0,0.3); }
-        
-        /* 登入視窗樣式 */
+        #cart-list { max-height: 200px; overflow-y: auto; border-bottom: 2px dashed #eee; }
+        .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f9f9f9; }
+        .big-input { font-size: 1.5em; padding: 10px; width: 100%; border-radius: 10px; border: 2px solid #d1c7bc; text-align: right; box-sizing: border-box; }
+        .total-display { font-size: 2.8em; font-weight: bold; color: var(--price-red); text-align: right; margin: 5px 0; }
+        .pay-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #ccc; background: white; cursor: pointer; font-weight: bold; }
+        .pay-btn.active { background: var(--accent-brown); color: white; }
+
+        /* Panels (Admin & History) */
+        #admin-panel, #history-panel { position: fixed; inset: 10px; background: white; z-index: 1000; border-radius: 20px; display: none; flex-direction: column; padding: 20px; border: 3px solid var(--main-brown); box-shadow: 0 0 50px rgba(0,0,0,0.3); }
+        .admin-layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 15px; flex: 1; overflow: hidden; margin-top: 15px; }
+        .admin-table-container { overflow: auto; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: center; }
+        .add-row-top { background: #f0fdf4; padding: 15px; border-radius: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+        /* Login Overlay */
         #login-overlay { position: fixed; inset: 0; background: var(--bg-cream); z-index: 2000; display: flex; justify-content: center; align-items: center; }
-        .login-card { background: white; padding: 30px; border-radius: 20px; border: 3px solid var(--main-brown); width: 320px; text-align: center; }
-        .login-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 1em; }
-        .login-btn { width: 100%; padding: 12px; background: var(--main-brown); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .logout-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #fff2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 5px 12px; border-radius: 10px; font-size: 0.6em; cursor: pointer; }
-        .user-tag { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.6em; color: #fff; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 20px; }
+        .login-card { background: white; padding: 40px; border-radius: 20px; border: 3px solid var(--main-brown); width: 320px; text-align: center; }
+        .login-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+        .login-btn { width: 100%; padding: 12px; background: var(--main-brown); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
         
-        /* 隱藏未授權功能 */
-        .admin-only { display: none; }
+        .admin-only { display: none; } /* 預設隱藏管理功能 */
     </style>
 </head>
 <body>
 
 <div id="login-overlay">
     <div class="login-card">
-        <h2 style="color: var(--main-brown)">🧸 系統登入</h2>
-        <input type="email" id="login-email" class="login-input" placeholder="電子郵件 (Email)">
+        <h2 style="color: var(--main-brown)">🧸 LITTLE NOOK 登入</h2>
+        <input type="email" id="login-email" class="login-input" placeholder="電子郵件">
         <input type="password" id="login-pass" class="login-input" placeholder="密碼">
-        <button class="login-btn" id="login-action-btn" onclick="handleLogin()">驗證並進入系統</button>
-        <p id="login-msg" style="font-size: 0.8em; color: #d9534f; margin-top: 10px;"></p>
+        <button class="login-btn" onclick="handleLogin()">進入系統</button>
+        <p id="login-msg" style="color:red; font-size:0.8em; margin-top:10px;"></p>
     </div>
 </div>
 
@@ -84,9 +94,9 @@
                     <button class="pay-btn" id="btn-elec" onclick="setPay('電支')">📱 電支</button>
                 </div>
             </div>
-            <button onclick="submitOrder()" style="width:100%; padding:20px; background:var(--profit-green); color:white; border:none; border-radius:15px; font-weight:bold; font-size:1.6em;">結帳完成</button>
+            <button onclick="submitOrder()" style="width:100%; padding:20px; background:var(--profit-green); color:white; border:none; border-radius:15px; font-weight:bold; font-size:1.6em; cursor:pointer;">結帳完成</button>
         </div>
-        <div class="card" style="flex:1; font-size: 1em; overflow-y: auto;">
+        <div class="card" style="flex:1; font-size: 0.9em; overflow-y: auto;">
             <strong>📋 今日即時紀錄</strong>
             <div id="order-log"></div>
         </div>
@@ -94,12 +104,50 @@
 </div>
 
 <div style="padding:15px; text-align:center; display: flex; justify-content: center; gap: 15px;">
-    <button class="admin-only" id="admin-entry-btn" onclick="toggleAdmin()" style="padding:15px 25px; border-radius:15px; background:white; border:3px solid var(--main-brown); font-weight:bold; font-size:1.1em; cursor:pointer;">🛠️ 商品管理 / 統計</button>
-    <button onclick="toggleHistory()" style="padding:15px 25px; border-radius:15px; background:var(--accent-brown); color:white; border:none; font-weight:bold; font-size:1.1em; cursor:pointer;">📜 歷史紀錄</button>
+    <button class="admin-only" onclick="toggleAdmin()" style="padding:15px 25px; border-radius:15px; background:white; border:3px solid var(--main-brown); font-weight:bold; cursor:pointer;">🛠️ 商品管理</button>
+    <button onclick="toggleHistory()" style="padding:15px 25px; border-radius:15px; background:var(--accent-brown); color:white; border:none; font-weight:bold; cursor:pointer;">📜 歷史紀錄</button>
+</div>
+
+<div id="admin-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">⚙️ 管理中心</h2>
+        <button onclick="toggleAdmin()" style="padding:8px 15px;">✕ 關閉</button>
+    </div>
+    <div class="add-row-top" style="margin-top:15px;">
+        <select id="select-cat" onchange="checkNewCat(this.value)"></select>
+        <input type="text" id="new-id" placeholder="代碼" style="width:60px; padding:5px;">
+        <input type="text" id="new-n" placeholder="品名" style="width:150px; padding:5px;">
+        <input type="number" id="new-c" placeholder="成本" style="width:60px; padding:5px;">
+        <input type="number" id="new-p" placeholder="售價" style="width:60px; padding:5px;">
+        <input type="number" id="new-s" placeholder="庫存" style="width:60px; padding:5px;">
+        <button onclick="addNewProduct()" style="background:var(--profit-green); color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">➕ 新增商品</button>
+    </div>
+    <div class="admin-layout">
+        <div class="admin-table-container">
+            <table>
+                <thead><tr style="background:#eee;"><th>排序</th><th>品名</th><th>成本</th><th>售價</th><th>庫存</th><th>刪</th></tr></thead>
+                <tbody id="admin-tbody"></tbody>
+            </table>
+        </div>
+        <div style="background:#f9f9f9; padding:15px; border-radius:10px;">
+            <h3>📊 銷售排名</h3>
+            <div id="stat-area">讀取中...</div>
+        </div>
+    </div>
+</div>
+
+<div id="history-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h2 style="margin:0;">📜 歷史紀錄與統計</h2>
+        <button onclick="toggleHistory()" style="padding:8px 15px;">✕ 關閉</button>
+    </div>
+    <div id="history-result-area" style="flex:1; overflow-y:auto; background:white; padding:15px; border-radius:10px; border:1px solid #eee;">
+        請從下方按鈕查詢資料...
+    </div>
 </div>
 
 <script>
-    // 1. 配置資訊 (請填入你的正確資訊)
+    // 1. Firebase 配置 (請根據您的 Console 修正)
     const firebaseConfig = {
         apiKey: "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8",
         authDomain: "project-7167865222667309007.firebaseapp.com",
@@ -110,74 +158,42 @@
         appId: "1:254159642856:web:fa519cb378aa2f7ccce95d"
     };
 
-    // 初始化 Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
 
-    let inv = [];
-    let orders = [];
-    let cart = [];
-    let currentPay = '現金';
-    let currentUserData = null; // 存放包含 role 的使用者資料
+    let inv = [], orders = [], cart = [], currentPay = '現金';
+    let currentUserData = null;
 
-    // 2. 登入狀態監聽 (核心邏輯)
+    // 2. 身份驗證監聽
     auth.onAuthStateChanged(user => {
         if (user) {
-            // 已登入：去資料庫抓取角色權限
             db.ref('users/' + user.uid).once('value').then(snap => {
-                currentUserData = snap.val() || { role: 'staff', name: '未知員工' };
+                currentUserData = snap.val() || { name: "未知帳號", role: "staff" };
                 document.getElementById('current-user-display').innerText = `${currentUserData.name} (${currentUserData.role})`;
                 document.getElementById('login-overlay').style.display = 'none';
                 
-                // 權限 UI 控制
+                // 顯示管理員專屬按鈕
                 if(currentUserData.role === 'admin') {
                     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'inline-block');
                 }
-                
-                loadMainData(); // 載入商品與訂單
+                loadDatabase();
             });
         } else {
-            // 未登入：顯示登入視窗
             document.getElementById('login-overlay').style.display = 'flex';
-            document.getElementById('current-user-display').innerText = "未登入";
-            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
         }
     });
 
-    // 3. 處理登入動作
     function handleLogin() {
-        const email = document.getElementById('login-email').value;
-        const pass = document.getElementById('login-pass').value;
-        const msg = document.getElementById('login-msg');
-        
-        if(!email || !pass) return msg.innerText = "請輸入完整帳密";
-        
-        msg.innerText = "驗證中...";
-        auth.signInWithEmailAndPassword(email, pass)
-            .catch(error => {
-                msg.innerText = "錯誤: " + error.message;
-            });
+        const e = document.getElementById('login-email').value, p = document.getElementById('login-pass').value;
+        auth.signInWithEmailAndPassword(e, p).catch(err => document.getElementById('login-msg').innerText = "登入失敗: " + err.message);
     }
 
-    // 4. 處理登出動作
-    function handleLogout() {
-        if(confirm("確定登出？")) auth.signOut();
-    }
+    function handleLogout() { if(confirm("確定登出？")) auth.signOut(); }
 
-    // 5. 權限檢查工具
-    function checkIsAdmin() {
-        if(currentUserData && currentUserData.role === 'admin') return true;
-        alert("權限不足：僅限管理員操作");
-        return false;
-    }
-
-    // 6. 資料讀取
-    function loadMainData() {
-        db.ref('inventory').on('value', snap => {
-            inv = snap.val() || [];
-            initUI();
-        });
+    // 3. 資料載入與同步
+    function loadDatabase() {
+        db.ref('inventory').on('value', snap => { inv = snap.val() || []; initUI(); });
         db.ref('orders').on('value', snap => {
             const data = snap.val();
             orders = data ? Object.keys(data).map(k => ({...data[k], firebaseKey: k})) : [];
@@ -186,35 +202,44 @@
         });
     }
 
-    // --- 以下為 POS 功能邏輯 (保持原樣，但加入 admin 檢查) ---
+    function syncToDB() {
+        if(currentUserData.role !== 'admin') return alert("權限不足");
+        db.ref('inventory').set(inv).then(() => alert("雲端庫存已更新"));
+    }
 
+    // 4. POS 核心功能
     function initUI() {
         const area = document.getElementById('item-area'), nav = document.getElementById('navbar');
         area.innerHTML = ''; nav.innerHTML = '';
         inv.forEach((cat, idx) => {
-            nav.innerHTML += `<div class="nav-btn" onclick="document.getElementById('c${idx}').scrollIntoView()">${cat.cat}</div>`;
-            let gridHtml = `<div class="cat-title" id="c${idx}">${cat.cat}</div><div class="product-grid">`;
+            nav.innerHTML += `<div class="nav-btn" onclick="document.getElementById('c${idx}').scrollIntoView({behavior:'smooth'})">${cat.cat}</div>`;
+            let grid = `<div class="cat-title" id="c${idx}">${cat.cat}</div><div class="product-grid">`;
             (cat.items || []).forEach(it => {
-                gridHtml += `<div class="p-btn" onclick="addCart('${it.id}')">
+                grid += `<div class="p-btn" onclick="addCart('${it.id}')">
                     <div class="p-name">${it.n}</div>
                     <div class="p-price">$${it.p}</div>
-                    <div class="p-stock">存:${it.s}</div>
+                    <div class="p-stock" style="font-size:0.7em; color:#999;">庫存:${it.s}</div>
                 </div>`;
             });
-            area.innerHTML += gridHtml + '</div>';
+            area.innerHTML += grid + '</div>';
         });
+        updateCatSelect();
     }
 
     function addCart(id) {
         let target = null;
         inv.forEach(c => (c.items || []).forEach(i => { if(i.id === id) target = i; }));
-        if(target) { cart.push({...target}); renderCart(); }
+        if(target) { 
+            if(target.s <= 0) if(!confirm("庫存為 0，確定加入？")) return;
+            cart.push({...target}); 
+            renderCart(); 
+        }
     }
 
     function renderCart() {
         document.getElementById('cart-list').innerHTML = cart.map((it, i) => `
             <div class="cart-item"><span>${it.n}</span><b>$${it.p}</b>
-            <span onclick="cart.splice(${i},1);renderCart()" style="color:red; cursor:pointer;">✕</span></div>`).join('');
+            <span onclick="cart.splice(${i},1);renderCart()" style="color:red; cursor:pointer; margin-left:10px;">✕</span></div>`).join('');
         calc();
     }
 
@@ -223,46 +248,132 @@
         document.getElementById('final-total').innerText = Math.max(0, total);
     }
 
-    function submitOrder() {
-        if(!cart.length) return;
-        const total = Number(document.getElementById('final-total').innerText);
-        const orderData = { 
-            t: new Date().toLocaleTimeString('zh-TW', {hour12:false}), 
-            d: new Date().toLocaleDateString('zh-TW'),
-            total, 
-            pay: currentPay, 
-            items: cart.map(i => ({n: i.n, p: i.p})),
-            user: currentUserData.name
-        };
-        
-        // 更新庫存邏輯...
-        db.ref('orders').push(orderData);
-        alert("結帳完成！");
-        cart = []; renderCart();
-    }
-
-    function toggleAdmin() {
-        if(!checkIsAdmin()) return;
-        // 原本的 Admin 面板切換邏輯...
-        const p = document.getElementById('admin-panel'); 
-        p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; 
-    }
-    
     function setPay(m) {
         currentPay = m;
         document.getElementById('btn-cash').className = m==='現金'?'pay-btn active':'pay-btn';
         document.getElementById('btn-elec').className = m==='電支'?'pay-btn active':'pay-btn';
     }
 
+    function submitOrder() {
+        if(!cart.length) return alert("清單是空的");
+        const total = Number(document.getElementById('final-total').innerText);
+        const orderData = {
+            d: new Date().toLocaleDateString('zh-TW'),
+            t: new Date().toLocaleTimeString('zh-TW', {hour12:false}),
+            total,
+            pay: currentPay,
+            user: currentUserData.name,
+            items: cart.map(i => ({ n: i.n, p: i.p }))
+        };
+
+        // 扣除庫存邏輯
+        cart.forEach(item => {
+            inv.forEach(c => (c.items || []).forEach(i => { if(i.id === item.id) i.s--; }));
+        });
+
+        db.ref('orders').push(orderData);
+        db.ref('inventory').set(inv);
+        
+        alert("結帳成功！");
+        cart = []; renderCart();
+        document.getElementById('discount').value = '';
+    }
+
     function updateLog() {
         const logArea = document.getElementById('order-log');
         const today = new Date().toLocaleDateString('zh-TW');
-        const todayOrders = orders.filter(o => o.d === today).slice(0, 10);
+        const todayOrders = orders.filter(o => o.d === today).slice(0, 8);
         logArea.innerHTML = todayOrders.map(o => `
-            <div style="border-bottom:1px solid #eee; padding:5px 0; font-size:0.8em;">
-                [${o.t}] <b>$${o.total}</b> (${o.pay}) - 經手人: ${o.user || '未知'}
+            <div style="border-bottom:1px solid #eee; padding:5px 0;">
+                <span style="color:#888;">[${o.t}]</span> <b>$${o.total}</b> (${o.pay})
             </div>
-        `).join('');
+        `).join('') || "今日尚無交易";
+    }
+
+    // 5. 管理功能 (包含防錯檢查)
+    function toggleAdmin() {
+        const p = document.getElementById('admin-panel');
+        if(!p) return;
+        p.style.display = (p.style.display === 'flex') ? 'none' : 'flex';
+        if(p.style.display === 'flex') renderAdminTable();
+    }
+
+    function toggleHistory() {
+        const p = document.getElementById('history-panel');
+        if(!p) return;
+        p.style.display = (p.style.display === 'flex') ? 'none' : 'flex';
+        if(p.style.display === 'flex') renderHistory();
+    }
+
+    function renderAdminTable() {
+        let html = '';
+        inv.forEach((cat, ci) => {
+            html += `<tr style="background:#f4f4f4;"><td colspan="6" style="text-align:left;"><b>📂 ${cat.cat}</b></td></tr>`;
+            (cat.items || []).forEach((it, ii) => {
+                html += `<tr>
+                    <td>${ii+1}</td>
+                    <td style="text-align:left;"><input type="text" value="${it.n}" onchange="editItem(${ci},${ii},'n',this.value)" style="width:90%"></td>
+                    <td><input type="number" value="${it.c}" onchange="editItem(${ci},${ii},'c',this.value)" style="width:50px"></td>
+                    <td><input type="number" value="${it.p}" onchange="editItem(${ci},${ii},'p',this.value)" style="width:50px"></td>
+                    <td><input type="number" value="${it.s}" onchange="editItem(${ci},${ii},'s',this.value)" style="width:50px"></td>
+                    <td><span onclick="delItem(${ci},${ii})" style="color:red; cursor:pointer;">✕</span></td>
+                </tr>`;
+            });
+        });
+        document.getElementById('admin-tbody').innerHTML = html;
+    }
+
+    function editItem(ci, ii, k, v) {
+        inv[ci].items[ii][k] = (k==='n'?v:Number(v));
+        db.ref('inventory').set(inv);
+    }
+
+    function delItem(ci, ii) {
+        if(confirm("確定刪除？")) { inv[ci].items.splice(ii, 1); db.ref('inventory').set(inv); }
+    }
+
+    function addNewProduct() {
+        const catN = document.getElementById('select-cat').value;
+        const n = document.getElementById('new-n').value, p = Number(document.getElementById('new-p').value);
+        if(!n || !catN) return alert("請填寫品名與分類");
+        
+        const category = inv.find(v => v.cat === catN);
+        if(category) {
+            if(!category.items) category.items = [];
+            category.items.push({
+                id: document.getElementById('new-id').value || Date.now().toString().slice(-4),
+                n: n,
+                c: Number(document.getElementById('new-c').value || 0),
+                p: p,
+                s: Number(document.getElementById('new-s').value || 0)
+            });
+            db.ref('inventory').set(inv);
+            ['new-id','new-n','new-c','new-p','new-s'].forEach(id => document.getElementById(id).value = '');
+        }
+    }
+
+    function updateCatSelect() {
+        const sel = document.getElementById('select-cat');
+        if(sel) sel.innerHTML = inv.map(c => `<option value="${c.cat}">${c.cat}</option>`).join('') + '<option value="ADD">+ 新增分類</option>';
+    }
+
+    function checkNewCat(val) {
+        if(val === "ADD") {
+            const name = prompt("輸入新分類名稱:");
+            if(name) { inv.push({cat: name, items: []}); db.ref('inventory').set(inv); }
+            document.getElementById('select-cat').selectedIndex = 0;
+        }
+    }
+
+    function renderHistory() {
+        const area = document.getElementById('history-result-area');
+        let total = 0;
+        let html = `<h3>今日銷售明細 (${new Date().toLocaleDateString()})</h3><table style="font-size:0.85em">`;
+        orders.filter(o => o.d === new Date().toLocaleDateString()).forEach(o => {
+            total += o.total;
+            html += `<tr><td>${o.t}</td><td>$${o.total}</td><td>${o.pay}</td><td>${o.user}</td></tr>`;
+        });
+        area.innerHTML = html + `</table><hr><h4>今日總營收：$${total}</h4>`;
     }
 </script>
 </body>
