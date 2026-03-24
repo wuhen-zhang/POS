@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🧸 LITTLE NOOK POS v3.0 | 雲端加強版</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root { --main-brown: #b0a496; --bg-cream: #fcf8f5; --accent-brown: #8c7b6c; --price-red: #d9534f; --profit-green: #6b8e23; --shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        body { font-family: -apple-system, sans-serif; background: var(--bg-cream); margin: 0; display: flex; flex-direction: column; height: 100vh; color: #5d5246; overflow: hidden; }
+        
+        /* 介面框架 */
+        header { background: var(--main-brown); color: white; padding: 15px; text-align: center; font-size: 1.3em; font-weight: bold; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
+        .main-content { display: flex; flex: 1; overflow: hidden; padding: 12px; gap: 12px; }
+        .scroll { overflow-y: auto; }
+        .card { background: white; border-radius: 18px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: var(--shadow); }
+
+        /* 登入遮罩 */
+        #login-overlay { position: fixed; inset: 0; background: var(--bg-cream); z-index: 9999; display: flex; justify-content: center; align-items: center; }
+        .login-box { width: 320px; padding: 30px; background: white; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+
+        /* 商品區 */
+        .item-area { flex: 2; background: white; border-radius: 18px; padding: 20px; border: 1px solid #e2e8f0; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+        .p-btn { background: white; border: 1px solid #f0e6dd; border-radius: 15px; padding: 12px; text-align: center; cursor: pointer; transition: 0.1s; }
+        .p-btn:active { transform: scale(0.95); background: #faf5f0; }
+        .cat-title { background: #fdf5f0; padding: 10px; border-radius: 10px; margin: 15px 0 10px; font-weight: bold; border-left: 6px solid var(--main-brown); }
+
+        /* 側欄結帳 */
+        .checkout-area { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 320px; }
+        .total-display { font-size: 2.8em; font-weight: 900; color: var(--price-red); text-align: right; margin: 10px 0; }
+        .big-input { font-size: 1.4em; padding: 10px; width: 100%; border-radius: 10px; border: 2px solid #edf2f7; text-align: right; box-sizing: border-box; font-weight: bold; }
+        .pay-btn { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer; font-weight: bold; }
+        .pay-btn.active { background: var(--accent-brown); color: white; }
+
+        /* 彈窗面板 */
+        .overlay-panel { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
+        .panel-content { width: 90%; height: 90%; background: white; border-radius: 25px; padding: 25px; display: flex; flex-direction: column; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; border: 1px solid #edf2f7; text-align: center; }
+        th { background: #f8fafc; }
+        
+        .admin-only { display: none; } /* 預設隱藏管理功能 */
+    </style>
+</head>
+<body>
+
+<div id="login-overlay">
+    <div class="login-box">
+        <h2 style="color: var(--main-brown);">🧸 LITTLE NOOK</h2>
+        <p>請登入 POS 系統</p>
+        <input type="email" id="login-email" class="big-input" style="text-align:left; font-size:1em; margin-bottom:10px;" placeholder="Email">
+        <input type="password" id="login-pw" class="big-input" style="text-align:left; font-size:1em; margin-bottom:15px;" placeholder="密碼">
+        <button onclick="handleLogin()" style="width:100%; padding:15px; background:var(--main-brown); color:white; border:none; border-radius:12px; font-weight:bold; cursor:pointer;">登入系統代碼</button>
+        <div id="login-msg" style="color:red; margin-top:10px; font-size:0.85em;"></div>
+    </div>
+</div>
+
+<header>
+    <div>🧸 LITTLE NOOK POS <small id="user-display" style="font-weight:normal; margin-left:10px;"></small></div>
+    <button onclick="handleLogout()" style="background:none; border:1px solid white; color:white; border-radius:5px; cursor:pointer;">登出</button>
+</header>
+
+<div class="main-content">
+    <div class="item-area scroll" id="item-area">載入商品中...</div>
+
+    <div class="checkout-area">
+        <div class="card">
+            <strong>🛒 當前清單</strong>
+            <div id="cart-list" style="margin:10px 0; max-height:200px; overflow-y:auto;"></div>
+            <input type="number" id="discount" class="big-input" placeholder="折扣金額" oninput="calcTotal()">
+            <div class="total-display">$<span id="final-total">0</span></div>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+                <button class="pay-btn active" id="btn-cash" onclick="setPay('現金')">💵 現金</button>
+                <button class="pay-btn" id="btn-elec" onclick="setPay('電支')">📱 電支</button>
+            </div>
+            <input type="number" id="cash-in" class="big-input" placeholder="實收金額" oninput="calcChange()">
+            <div style="text-align:right; margin-top:5px;">找零: <span id="cash-change" style="font-weight:bold; color:red; font-size:1.4em;">0</span></div>
+            <button onclick="submitOrder()" style="width:100%; padding:18px; margin-top:15px; background:var(--profit-green); color:white; border:none; border-radius:15px; font-weight:bold; font-size:1.3em; cursor:pointer;">完成結帳</button>
+        </div>
+        
+        <div class="card scroll" style="flex:1;">
+            <strong>📋 今日交易 (前10筆)</strong>
+            <div id="order-log" style="font-size:0.9em; margin-top:8px;"></div>
+        </div>
+    </div>
+</div>
+
+<div style="padding:12px; display:flex; justify-content:center; gap:15px; background:white; border-top:1px solid #ddd;">
+    <button class="admin-only" onclick="togglePanel('admin-panel')" id="admin-btn-ui" style="padding:12px 25px; border-radius:12px; background:white; border:2px solid var(--main-brown); font-weight:bold; cursor:pointer;">🛠️ 管理中心</button>
+    <button onclick="togglePanel('history-panel')" style="padding:12px 25px; border-radius:12px; background:var(--accent-brown); color:white; border:none; font-weight:bold; cursor:pointer;">📜 歷史與退貨</button>
+</div>
+
+<div id="admin-panel" class="overlay-panel">
+    <div class="panel-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>⚙️ 管理中心</h2>
+            <button onclick="togglePanel('admin-panel')">✕ 關閉</button>
+        </div>
+        <div class="scroll" style="flex:1;">
+            <div class="card" style="margin-top:10px; background:#f8fafc;">
+                <h3>👥 員工帳號管理</h3>
+                <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                    <input type="email" id="new-staff-email" placeholder="Email" style="padding:8px;">
+                    <input type="password" id="new-staff-pw" placeholder="密碼" style="padding:8px;">
+                    <select id="new-staff-role" style="padding:8px;"><option value="staff">一般店員</option><option value="admin">管理員</option></select>
+                    <button onclick="createStaffAccount()" style="background:var(--profit-green); color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">新增員工</button>
+                </div>
+                <table>
+                    <thead><tr><th>Email</th><th>權限</th><th>操作</th></tr></thead>
+                    <tbody id="staff-tbody"></tbody>
+                </table>
+            </div>
+
+            <div class="card" style="margin-top:20px;">
+                <h3>📦 商品庫存管理</h3>
+                <div style="margin-bottom:10px; display:flex; gap:10px;">
+                    <select id="select-cat" onchange="checkNewCat(this.value)"></select>
+                    <input type="text" id="new-p-n" placeholder="品名">
+                    <input type="number" id="new-p-p" placeholder="售價" style="width:80px;">
+                    <button onclick="addNewProduct()" style="background:var(--main-brown); color:white; border:none; padding:8px 15px; border-radius:5px;">新增商品代碼</button>
+                </div>
+                <tbody id="admin-tbody"></tbody> </div>
+        </div>
+    </div>
+</div>
+
+<div id="history-panel" class="overlay-panel">
+    <div class="panel-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2>📜 歷史紀錄</h2>
+            <div>
+                <button onclick="exportToExcel()" style="background:#217346; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">匯出 Excel</button>
+                <button onclick="togglePanel('history-panel')">✕ 關閉</button>
+            </div>
+        </div>
+        <div style="margin-bottom:15px;"><input type="date" id="search-date"> <button onclick="searchHistory()">搜尋</button></div>
+        <div id="history-result" class="scroll" style="flex:1;"></div>
+    </div>
+</div>
+
+<script>
+    // --- 1. Firebase 配置 (請替換為您的資訊) ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8",
+        authDomain: "project-7167865222667309007.firebaseapp.com",
+        databaseURL: "https://project-7167865222667309007-default-rtdb.firebaseio.com",
+        projectId: "project-7167865222667309007",
+        storageBucket: "project-7167865222667309007.firebasestorage.app",
+        messagingSenderId: "254159642856",
+        appId: "1:254159642856:web:fa519cb378aa2f7ccce95d"
+    };
+
+    // --- 2. 初始化變數 ---
+    let db, currentUser = null, userRole = 'staff';
+    let inv = [], orders = [], cart = [], payMethod = '現金';
+
+    const esc = (s) => s ? String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) : '';
+
+    // --- 3. Firebase 核心邏輯 ---
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        
+        firebase.auth().onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                // 讀取權限
+                db.ref('users/' + user.uid).once('value', s => {
+                    const data = s.val();
+                    userRole = data ? data.role : 'staff';
+                    document.getElementById('login-overlay').style.display = 'none';
+                    document.getElementById('user-display').innerText = `(${esc(user.email)} - ${userRole})`;
+                    applyRoleUI();
+                    loadAppData();
+                });
+            } else {
+                document.getElementById('login-overlay').style.display = 'flex';
+            }
+        });
+    } catch(e) { console.error("Firebase Init Failed", e); }
+
+    function applyRoleUI() {
+        const isAdmin = userRole === 'admin';
+        document.getElementById('admin-btn-ui').style.display = isAdmin ? 'block' : 'none';
+    }
+
+    function loadAppData() {
+        db.ref('inventory').on('value', s => { inv = s.val() || []; renderUI(); if(userRole==='admin') renderAdminTable(); });
+        db.ref('orders').on('value', s => {
+            const d = s.val();
+            orders = d ? Object.keys(d).map(k => ({...d[k], key: k})).sort((a,b)=>(b.d+b.t).localeCompare(a.d+a.t)) : [];
+            renderLog();
+        });
+    }
+
+    // --- 4. 業務邏輯 (結帳、庫存) ---
+    function renderUI() {
+        const area = document.getElementById('item-area'); area.innerHTML = '';
+        inv.forEach((cat, idx) => {
+            let html = `<div class="cat-title">${esc(cat.cat)}</div><div class="product-grid">`;
+            (cat.items || []).forEach(it => {
+                html += `<div class="p-btn" onclick="addToCart('${it.id}')">
+                    <div style="font-weight:bold;">${esc(it.n)}</div>
+                    <div style="color:var(--accent-brown);">$${it.p}</div>
+                    <div style="font-size:0.75em; color:#999;">存: ${it.s}</div>
+                </div>`;
+            });
+            area.innerHTML += html + '</div>';
+        });
+        updateCatSelect();
+    }
+
+    function addToCart(id) {
+        let item = null;
+        inv.forEach(c => c.items.forEach(i => { if(i.id === id) item = {...i}; }));
+        if (item) {
+            if(item.s <= 0 && !confirm("庫存不足，確定加入？")) return;
+            cart.push(item); renderCart();
+        }
+    }
+
+    function renderCart() {
+        document.getElementById('cart-list').innerHTML = cart.map((it, i) => `
+            <div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #eee;">
+                <span>${esc(it.n)}</span><b>$${it.p}</b>
+                <span onclick="cart.splice(${i},1);renderCart()" style="color:red; cursor:pointer;">✕</span>
+            </div>`).join('');
+        calcTotal();
+    }
+
+    function calcTotal() {
+        const dis = Number(document.getElementById('discount').value || 0);
+        const total = Math.max(0, cart.reduce((a, b) => a + b.p, 0) - dis);
+        document.getElementById('final-total').innerText = total;
+        calcChange();
+    }
+
+    function calcChange() {
+        const t = Number(document.getElementById('final-total').innerText);
+        const c = Number(document.getElementById('cash-in').value || 0);
+        document.getElementById('cash-change').innerText = c > t ? c - t : 0;
+    }
+
+    function submitOrder() {
+        if (!cart.length) return;
+        const total = Number(document.getElementById('final-total').innerText);
+        const order = {
+            d: new Date().toLocaleDateString('zh-TW'),
+            t: new Date().toLocaleTimeString('zh-TW', {hour12:false}),
+            total,
+            pay: payMethod,
+            items: cart.map(i => ({n: i.n, p: i.p, id: i.id})),
+            uid: currentUser.uid
+        };
+        // 扣庫存
+        cart.forEach(ci => { inv.forEach(cat => cat.items.forEach(it => { if(it.id === ci.id) it.s--; })); });
+        db.ref('orders').push(order);
+        db.ref('inventory').set(inv);
+        alert("結帳完成！"); cart = []; renderCart(); document.getElementById('cash-in').value = '';
+    }
+
+    // --- 5. 管理功能 (員工與商品) ---
+    async function createStaffAccount() {
+        if (userRole !== 'admin') return;
+        const email = document.getElementById('new-staff-email').value;
+        const pw = document.getElementById('new-staff-pw').value;
+        const role = document.getElementById('new-staff-role').value;
+        if(!email || !pw) return alert("請填寫 Email/密碼");
+        try {
+            const tempApp = firebase.initializeApp(firebaseConfig, "TempApp");
+            const res = await tempApp.auth().createUserWithEmailAndPassword(email, pw);
+            await db.ref('users/' + res.user.uid).set({ email, role });
+            await tempApp.delete();
+            alert("員工帳號建立成功"); renderStaffList();
+        } catch(e) { alert("建立失敗: " + e.message); }
+    }
+
+    function renderStaffList() {
+        db.ref('users').once('value', s => {
+            const users = s.val() || {};
+            document.getElementById('staff-tbody').innerHTML = Object.keys(users).map(uid => `
+                <tr><td>${esc(users[uid].email)}</td><td>${users[uid].role}</td>
+                <td><button onclick="deleteStaff('${uid}')" style="color:red;">刪除</button></td></tr>`).join('');
+        });
+    }
+
+    function deleteStaff(uid) {
+        if(uid === currentUser.uid) return alert("無法刪除自己");
+        if(confirm("確定移除此員工權限？")) db.ref('users/' + uid).remove().then(() => renderStaffList());
+    }
+
+    function renderAdminTable() {
+        // 這裡可實作詳細商品編輯表格
+        renderStaffList();
+    }
+
+    // --- 6. 基礎功能 ---
+    function handleLogin() {
+        const e = document.getElementById('login-email').value;
+        const p = document.getElementById('login-pw').value;
+        firebase.auth().signInWithEmailAndPassword(e, p).catch(err => document.getElementById('login-msg').innerText = err.message);
+    }
+    function handleLogout() { firebase.auth().signOut(); }
+    function setPay(m) { payMethod = m; document.getElementById('btn-cash').className = m==='現金'?'pay-btn active':'pay-btn'; document.getElementById('btn-elec').className = m==='電支'?'pay-btn active':'pay-btn'; }
+    function togglePanel(id) { const p = document.getElementById(id); p.style.display = (p.style.display==='flex'?'none':'flex'); }
+    function updateCatSelect() { const sel = document.getElementById('select-cat'); if(sel) sel.innerHTML = inv.map(c=>`<option value="${esc(c.cat)}">${esc(c.cat)}</option>`).join('') + '<option value="ADD">+ 新增分類</option>'; }
+    function syncToDB() { db.ref('inventory').set(inv); }
+    function checkNewCat(v) { if(v==="ADD"){ const n = prompt("新分類名："); if(n){ inv.push({cat:n, items:[]}); syncToDB(); } } }
+    function addNewProduct() {
+        const catN = document.getElementById('select-cat').value;
+        const n = document.getElementById('new-p-n').value, p = Number(document.getElementById('new-p-p').value);
+        const cat = inv.find(c => c.cat === catN);
+        if(cat) { cat.items.push({id: Date.now().toString().slice(-6), n, p, s: 0, c: 0}); syncToDB(); }
+    }
+    function renderLog() {
+        const today = new Date().toLocaleDateString('zh-TW');
+        const list = orders.filter(o => o.d === today).slice(0, 10);
+        document.getElementById('order-log').innerHTML = list.map(o => `<div>[${o.t}] $${o.total} (${esc(o.pay)})</div>`).join('') || '今日無紀錄';
+    }
+    function exportToExcel() {
+        const ws = XLSX.utils.json_to_sheet(orders);
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sales");
+        XLSX.writeFile(wb, `Sales_${new Date().toLocaleDateString()}.xlsx`);
+    }
+</script>
+</body>
+</html>
