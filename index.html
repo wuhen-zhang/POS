@@ -471,7 +471,7 @@
             inv.forEach(c => (c.items || []).forEach(i => { if(i.id === item.id) i.s--; })); 
         });
         
-        if(db && firebaseConfig.apiKey !== "請替換為您的API_KEY") {
+        if(db && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
             db.ref('orders').push(orderData);
             db.ref('inventory').set(inv);
             alert("結帳成功！已同步至 Firebase");
