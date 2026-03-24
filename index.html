@@ -185,13 +185,13 @@
 
 <script>
     const firebaseConfig = {
-        apiKey: "請替換為您的API_KEY",
-        authDomain: "您的專案ID.firebaseapp.com",
-        databaseURL: "您的資料庫URL",
-        projectId: "您的專案ID",
-        storageBucket: "您的專案ID.appspot.com",
-        messagingSenderId: "您的傳送ID",
-        appId: "您的APP_ID"
+        apiKey: "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8",
+        authDomain: "project-7167865222667309007.firebaseapp.com",
+        databaseURL: "https://project-7167865222667309007-default-rtdb.firebaseio.com",
+        projectId: "project-7167865222667309007",
+        storageBucket: "project-7167865222667309007.firebasestorage.app",
+        messagingSenderId: "254159642856",
+        appId: "1:254159642856:web:fa519cb378aa2f7ccce95d"
     };
 
     let db;
@@ -252,7 +252,7 @@
     ];
 
     function loadData() {
-        if(db && firebaseConfig.apiKey !== "請替換為您的API_KEY") {
+        if(db && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
             db.ref('inventory').on('value', snap => {
                 inv = snap.val() || defaultInv;
                 initUI();
@@ -273,7 +273,7 @@
 
     function syncToDB() {
         initUI();
-        if(db && firebaseConfig.apiKey !== "請替換為您的API_KEY") {
+        if(db && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
             db.ref('inventory').set(inv).catch(e => console.log("雲端同步失敗"));
         }
     }
@@ -533,7 +533,7 @@
             inv.forEach(c => (c.items || []).forEach(i => { if(i.id === item.id) i.s--; })); 
         });
         
-        if(db && firebaseConfig.apiKey !== "請替換為您的API_KEY") {
+        if(db && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
             db.ref('orders').push(orderData);
             db.ref('inventory').set(inv);
             alert("結帳成功！已同步至 Firebase");
