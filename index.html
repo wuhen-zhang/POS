@@ -5,14 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🧸 LITTLE NOOK POS (Pro 修正版)</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
         :root { --main-brown: #b0a496; --bg-cream: #fcf8f5; --accent-brown: #8c7b6c; --price-red: #d9534f; --profit-green: #6b8e23; }
         body { font-family: sans-serif; background: var(--bg-cream); margin: 0; display: flex; flex-direction: column; height: 100vh; color: #5d5246; overflow: hidden; }
-        header { background: var(--main-brown); color: white; padding: 12px; text-align: center; font-size: 1.3em; font-weight: bold; flex-shrink: 0; }
+        header { background: var(--main-brown); color: white; padding: 12px; text-align: center; font-size: 1.3em; font-weight: bold; flex-shrink: 0; position: relative; }
+        
+        /* 登出按鈕樣式 */
+        .logout-btn { position: absolute; right: 10px; top: 10px; background: rgba(0,0,0,0.2); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; }
+
+        /* 登入介面樣式 */
+        #login-screen { position: fixed; inset: 0; background: var(--bg-cream); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: white; padding: 30px; border-radius: 20px; border: 3px solid var(--main-brown); width: 90%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        .login-box h2 { color: var(--main-brown); margin-bottom: 20px; }
+        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .login-box button { width: 100%; padding: 12px; background: var(--main-brown); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1.1em; }
+        
+        /* 隱藏主內容直至登入 */
+        #pos-app { display: none; flex-direction: column; height: 100vh; }
+
         .nav-bar { background: #e8e0d9; padding: 10px; display: flex; gap: 10px; overflow-x: auto; border-bottom: 2px solid #d1c7bc; flex-shrink: 0; align-items: center; }
         .nav-btn { background: white; border: 1px solid #d1c7bc; padding: 8px 18px; border-radius: 20px; white-space: nowrap; cursor: pointer; font-size: 1.1em; }
         .sync-btn { background: #ff9800; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; margin-left: auto; }
@@ -48,75 +62,71 @@
         .clear-log-btn { background: none; border: 1px solid #b0a496; color: #b0a496; font-size: 0.75em; padding: 2px 8px; border-radius: 5px; cursor: pointer; }
         .del-cat-btn { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px; }
         .edit-cat-btn { background: #3182ce; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px; }
-        
-        /* 新增登入畫面樣式 */
-        #login-overlay { position: fixed; inset: 0; background: var(--bg-cream); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .login-box { background: white; padding: 30px; border-radius: 15px; border: 3px solid var(--main-brown); box-shadow: 0 0 20px rgba(0,0,0,0.1); text-align: center; width: 300px; }
-        .login-input { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e8e0d9; border-radius: 8px; box-sizing: border-box; font-size: 1.1em; }
-        .login-btn { background: var(--main-brown); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 1.2em; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        .logout-btn { background: #d9534f; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; margin-left: 10px; }
     </style>
 </head>
 <body>
 
-<div id="login-overlay">
+<div id="login-screen">
     <div class="login-box">
-        <h2 style="color: var(--main-brown); margin-top:0;">🧸 系統登入</h2>
-        <input type="email" id="login-email" class="login-input" placeholder="登入信箱">
-        <input type="password" id="login-pwd" class="login-input" placeholder="密碼">
-        <button class="login-btn" onclick="login()">登入</button>
-        <div id="login-error" style="color: red; margin-top: 10px; font-size: 0.9em; display: none;"></div>
+        <h2>🧸 POS 系統登入</h2>
+        <input type="email" id="login-email" placeholder="電子郵件">
+        <input type="password" id="login-password" placeholder="密碼">
+        <button onclick="handleLogin()">登入</button>
     </div>
 </div>
 
-<header>🧸 LITTLE NOOK POS (Pro 修正版)</header>
-<div class="nav-bar">
-    <div id="navbar" style="display:flex; gap:10px;"></div>
-    <button class="sync-btn" onclick="syncOfflineData()">🔄 離線數據同步</button>
-    <button class="logout-btn" onclick="logout()" id="logout-btn" style="display:none;">登出</button>
-</div>
+<div id="pos-app">
+    <header>
+        🧸 LITTLE NOOK POS (Pro 修正版)
+        <button class="logout-btn" onclick="handleLogout()">登出</button>
+    </header>
+    <div class="nav-bar">
+        <div id="navbar" style="display:flex; gap:10px;"></div>
+        <button class="sync-btn" onclick="syncOfflineData()">🔄 離線數據同步</button>
+    </div>
 
-<div class="main-content">
-    <div class="item-area" id="item-area">同步中...</div>
-    <div class="checkout-area">
-        <div class="card">
-            <strong>🛒 當前清單</strong>
-            <div id="cart-list"></div>
-            <div style="margin-top:10px;">
-                <input type="number" id="discount" class="big-input" placeholder="折扣金額" oninput="calc()">
-                <input type="text" id="discount-note" class="small-note" placeholder="折扣原因/備註 (例如: 滿額贈)">
-                <div style="margin-top:5px; display:flex; gap:5px;">
-                    <button onclick="addExtraCost()" style="flex:1; padding:8px; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; border-radius:8px; cursor:pointer; font-size:0.9em; font-weight:bold;">➕ 紀錄額外支出</button>
+    <div class="main-content">
+        <div class="item-area" id="item-area">同步中...</div>
+        <div class="checkout-area">
+            <div class="card">
+                <strong>🛒 當前清單</strong>
+                <div id="cart-list"></div>
+                <div style="margin-top:10px;">
+                    <input type="number" id="discount" class="big-input" placeholder="折扣金額" oninput="calc()">
+                    <input type="text" id="discount-note" class="small-note" placeholder="折扣原因/備註 (例如: 滿額贈)">
+                    <div style="margin-top:5px; display:flex; gap:5px;">
+                        <button onclick="addExtraCost()" style="flex:1; padding:8px; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; border-radius:8px; cursor:pointer; font-size:0.9em; font-weight:bold;">➕ 紀錄額外支出</button>
+                    </div>
                 </div>
-            </div>
-            <div class="total-display">$<span id="final-total">0</span></div>
-            <div style="display:flex; gap:8px; margin-bottom:10px;">
-                <button class="pay-btn active" id="btn-cash" onclick="setPay('現金')">💵 現金</button>
-                <button class="pay-btn" id="btn-elec" onclick="setPay('電支')">📱 電支</button>
-            </div>
-            <input type="number" id="cash-in" class="big-input" placeholder="實收金額" oninput="calcChange()"> 
-            <div style="text-align:right; margin-top:5px; font-size: 1.3em;">找零: <span id="cash-change" style="font-weight:bold; color:red; font-size:1.8em;">0</span></div>
-            
-            <div style="margin: 10px 0; padding: 10px; background: #fff5eb; border-radius: 10px; border: 1px dashed var(--main-brown);">
-                <label style="font-size: 0.9em; cursor: pointer;">
-                    <input type="checkbox" id="backdate-mode" onclick="document.getElementById('manual-date').style.display = this.checked ? 'inline-block' : 'none'"> 
-                    📅 補登過去日期資料
-                </label>
-                <input type="date" id="manual-date" style="display:none; margin-left:10px; padding:5px; border:1px solid #ccc; border-radius:5px;">
-            </div>
+                <div class="total-display">$<span id="final-total">0</span></div>
+                <div style="display:flex; gap:8px; margin-bottom:10px;">
+                    <button class="pay-btn active" id="btn-cash" onclick="setPay('現金')">💵 現金</button>
+                    <button class="pay-btn" id="btn-elec" onclick="setPay('電支')">📱 電支</button>
+                </div>
+                <input type="number" id="cash-in" class="big-input" placeholder="實收金額" oninput="calcChange()"> 
+                <div style="text-align:right; margin-top:5px; font-size: 1.3em;">找零: <span id="cash-change" style="font-weight:bold; color:red; font-size:1.8em;">0</span></div>
+                
+                <div style="margin: 10px 0; padding: 10px; background: #fff5eb; border-radius: 10px; border: 1px dashed var(--main-brown);">
+                    <label style="font-size: 0.9em; cursor: pointer;">
+                        <input type="checkbox" id="backdate-mode" onclick="document.getElementById('manual-date').style.display = this.checked ? 'inline-block' : 'none'"> 
+                        📅 補登過去日期資料
+                    </label>
+                    <input type="date" id="manual-date" style="display:none; margin-left:10px; padding:5px; border:1px solid #ccc; border-radius:5px;">
+                </div>
 
-            <button onclick="submitOrder()" style="width:100%; padding:20px; margin-top:15px; background:var(--profit-green); color:white; border:none; border-radius:15px; font-weight:bold; font-size:1.6em;">結帳完成</button>
-        </div>
-        <div class="card" style="flex:1; font-size: 1em; overflow-y: auto;">
-            <strong>📋 今日即時紀錄</strong>
-            <div id="order-log"></div>
+                <button onclick="submitOrder()" style="width:100%; padding:20px; margin-top:15px; background:var(--profit-green); color:white; border:none; border-radius:15px; font-weight:bold; font-size:1.6em;">結帳完成</button>
+            </div>
+            <div class="card" style="flex:1; font-size: 1em; overflow-y: auto;">
+                <strong>📋 今日即時紀錄</strong>
+                <div id="order-log"></div>
+            </div>
         </div>
     </div>
-</div>
 
-<div style="padding:15px; text-align:center; display: flex; justify-content: center; gap: 15px;">
-    <button onclick="toggleAdmin()" style="padding:15px 25px; border-radius:15px; background:white; border:3px solid var(--main-brown); font-weight:bold; font-size:1.1em; cursor:pointer;">🛠️ 商品管理 / 統計</button>
-    <button onclick="toggleHistory()" style="padding:15px 25px; border-radius:15px; background:var(--accent-brown); color:white; border:none; font-weight:bold; font-size:1.1em; cursor:pointer;">📜 歷史紀錄 / 退貨</button>
+    <div style="padding:15px; text-align:center; display: flex; justify-content: center; gap: 15px;">
+        <button onclick="toggleAdmin()" style="padding:15px 25px; border-radius:15px; background:white; border:3px solid var(--main-brown); font-weight:bold; font-size:1.1em; cursor:pointer;">🛠️ 商品管理 / 統計</button>
+        <button onclick="toggleHistory()" style="padding:15px 25px; border-radius:15px; background:var(--accent-brown); color:white; border:none; font-weight:bold; font-size:1.1em; cursor:pointer;">📜 歷史紀錄 / 退貨</button>
+    </div>
 </div>
 
 <div id="history-panel">
@@ -190,16 +200,41 @@
         appId: "您的APP_ID"
     };
 
-    let db;
-    let auth; // 新增 auth 變數
+    let db, auth;
     try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
-        auth = firebase.auth(); // 初始化 auth
+        auth = firebase.auth();
     } catch(e) { 
-        console.log("Firebase未配置，使用本地模式"); 
+        console.log("Firebase未配置"); 
     }
-    
+
+    // --- 身份驗證邏輯 ---
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('pos-app').style.display = 'flex';
+            loadData(); // 登入後才加載數據
+        } else {
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('pos-app').style.display = 'none';
+        }
+    });
+
+    function handleLogin() {
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-password').value;
+        auth.signInWithEmailAndPassword(email, pass).catch(err => {
+            alert("登入失敗: " + err.message);
+        });
+    }
+
+    function handleLogout() {
+        if(confirm("確定要登出嗎？")) {
+            auth.signOut();
+        }
+    }
+
     let inv = []; 
     let orders = [];
     let cart = []; 
@@ -218,9 +253,8 @@
             });
             db.ref('orders').on('value', snap => {
                 const data = snap.val();
-                // 將 Firebase 物件轉換為陣列並包含 key
                 orders = data ? Object.keys(data).map(k => ({...data[k], firebaseKey: k})) : [];
-                orders.sort((a,b) => (b.d+b.t).localeCompare(a.d+a.t)); // 排序
+                orders.sort((a,b) => (b.d+b.t).localeCompare(a.d+a.t)); 
                 updateLog(); 
                 renderStatTable();
             });
@@ -229,48 +263,6 @@
             initUI();
         }
     }
-
-    // --- 新增登入與狀態監聽邏輯 ---
-    if (auth && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('logout-btn').style.display = 'inline-block';
-                loadData(); // 登入成功後才載入資料
-            } else {
-                document.getElementById('login-overlay').style.display = 'flex';
-                document.getElementById('logout-btn').style.display = 'none';
-            }
-        });
-    } else {
-        // 本地模式直接隱藏登入並載入資料
-        document.getElementById('login-overlay').style.display = 'none';
-        loadData();
-    }
-
-    function login() {
-        if(!auth) return;
-        const email = document.getElementById('login-email').value;
-        const pwd = document.getElementById('login-pwd').value;
-        const errDiv = document.getElementById('login-error');
-        
-        if(!email || !pwd) {
-            errDiv.innerText = "請輸入完整帳號密碼";
-            errDiv.style.display = 'block';
-            return;
-        }
-        errDiv.style.display = 'none';
-        
-        auth.signInWithEmailAndPassword(email, pwd).catch(e => {
-            errDiv.innerText = "登入失敗：" + e.message;
-            errDiv.style.display = 'block';
-        });
-    }
-
-    function logout() {
-        if(auth) auth.signOut();
-    }
-    // --------------------------------
 
     function syncToDB() {
         initUI();
@@ -307,7 +299,6 @@
         if(document.getElementById('admin-panel').style.display === 'flex') renderAdminTable();
     }
 
-    // --- 即時紀錄功能 ---
     function updateLog() {
         const logArea = document.getElementById('order-log');
         const today = new Date().toLocaleDateString('zh-TW');
@@ -326,7 +317,6 @@
         `).join('');
     }
 
-    // --- 歷史與統計功能 ---
     function searchHistory(mode) {
         const resultArea = document.getElementById('history-result-area');
         let filtered = [];
@@ -339,10 +329,10 @@
             filtered = orders.filter(o => o.d === dateStr);
             title = `📅 ${dateStr} 交易紀錄`;
         } else {
-            const month = document.getElementById('search-month').value; // YYYY-MM
+            const month = document.getElementById('search-month').value; 
             if(!month) return alert("請選擇月份");
             filtered = orders.filter(o => {
-                const parts = o.d.split('/'); // 假設格式是 2026/1/4
+                const parts = o.d.split('/'); 
                 const oMonth = `${parts[0]}-${parts[1].padStart(2,'0')}`;
                 return oMonth === month;
             });
@@ -403,7 +393,6 @@
         `).join('');
     }
 
-    // --- 原有邏輯修正與補強 ---
     function checkNewCat(val) {
         if(val === "ADD") { 
             const n = prompt("請輸入新分類名稱："); 
@@ -528,7 +517,6 @@
             note: document.getElementById('discount-note').value 
         };
         
-        // 扣庫存
         cart.forEach(item => { 
             inv.forEach(c => (c.items || []).forEach(i => { if(i.id === item.id) i.s--; })); 
         });
