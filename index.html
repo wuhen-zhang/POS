@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🧸 LITTLE NOOK POS (Pro 權限管理版)</title>
+    <title>🧸 LITTLE NOOK POS (Pro 雲端連線版)</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -48,7 +48,6 @@
         .del-cat-btn { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px; }
         .edit-cat-btn { background: #3182ce; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px; }
 
-        /* 權限相關樣式 */
         #login-overlay { position: fixed; inset: 0; background: var(--bg-cream); z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-card { background: white; padding: 30px; border-radius: 20px; border: 3px solid var(--main-brown); width: 300px; text-align: center; }
         .login-input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
@@ -71,17 +70,17 @@
 
 <header>
     <span class="user-tag" id="current-user-display">未登入</span>
-    🧸 LITTLE NOOK POS (Pro 權限管理版)
+    🧸 LITTLE NOOK POS (Pro 雲端連線版)
     <button class="logout-btn" onclick="logout()">登出</button>
 </header>
 
 <div class="nav-bar">
     <div id="navbar" style="display:flex; gap:10px;"></div>
-    <button class="sync-btn" onclick="syncOfflineData()">🔄 離線數據同步</button>
+    <button class="sync-btn" onclick="syncOfflineData()">🔄 雲端手動同步</button>
 </div>
 
 <div class="main-content">
-    <div class="item-area" id="item-area">同步中...</div>
+    <div class="item-area" id="item-area">正在連線至 Firebase...</div>
     <div class="checkout-area">
         <div class="card">
             <strong>🛒 當前清單</strong>
@@ -194,12 +193,14 @@
         appId: "1:254159642856:web:fa519cb378aa2f7ccce95d"
     };
 
-    let db;
+    let db = null;
     try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
+        console.log("Firebase 實例已初始化");
     } catch(e) { 
-        console.log("Firebase未配置，使用本地模式"); 
+        console.error("Firebase 初始化失敗:", e);
+        document.getElementById('item-area').innerText = "Firebase 連線失敗，改用本地模式";
     }
     
     let inv = []; 
@@ -207,7 +208,6 @@
     let cart = []; 
     let currentPay = '現金';
 
-    // --- 權限邏輯開始 ---
     const users = [
         { u: "admin", p: "1234", role: "admin", name: "管理員" },
         { u: "staff", p: "0000", role: "staff", name: "員工" }
@@ -218,12 +218,10 @@
         const u = document.getElementById('login-u').value;
         const p = document.getElementById('login-p').value;
         const user = users.find(x => x.u === u && x.p === p);
-        
         if (user) {
             currentUser = user;
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('current-user-display').innerText = `${user.name} (${user.role})`;
-            alert(`歡迎回來，${user.name}`);
         } else {
             alert("帳號或密碼錯誤！");
         }
@@ -244,7 +242,6 @@
         alert("權限不足：僅管理員可存取此功能。");
         return false;
     }
-    // --- 權限邏輯結束 ---
 
     const defaultInv = [
         { cat: "🧸 招牌玩偶", items: [{id: "A01", n: "經典小熊", c: 100, p: 250, s: 10}] },
@@ -252,7 +249,8 @@
     ];
 
     function loadData() {
-        if(db && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
+        // 已移除金鑰比對排除邏輯
+        if(db) {
             db.ref('inventory').on('value', snap => {
                 inv = snap.val() || defaultInv;
                 initUI();
@@ -273,8 +271,8 @@
 
     function syncToDB() {
         initUI();
-        if(db && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
-            db.ref('inventory').set(inv).catch(e => console.log("雲端同步失敗"));
+        if(db) {
+            db.ref('inventory').set(inv).catch(e => console.error("雲端同步失敗:", e));
         }
     }
 
@@ -324,156 +322,44 @@
         `).join('');
     }
 
-    function searchHistory(mode) {
-        const resultArea = document.getElementById('history-result-area');
-        let filtered = [];
-        let title = "";
-
-        if(mode === 'day') {
-            const date = document.getElementById('search-date').value;
-            if(!date) return alert("請選擇日期");
-            const dateStr = new Date(date).toLocaleDateString('zh-TW');
-            filtered = orders.filter(o => o.d === dateStr);
-            title = `📅 ${dateStr} 交易紀錄`;
-        } else {
-            const month = document.getElementById('search-month').value; 
-            if(!month) return alert("請選擇月份");
-            filtered = orders.filter(o => {
-                const parts = o.d.split('/');
-                const oMonth = `${parts[0]}-${parts[1].padStart(2,'0')}`;
-                return oMonth === month;
-            });
-            title = `📊 ${month} 月度統計`;
-        }
-
-        let totalRev = 0, totalProf = 0;
-        let html = `<h3>${title}</h3>`;
-
-        if(filtered.length === 0) {
-            html += "<p>此時段無資料</p>";
-        } else {
-            filtered.forEach(o => {
-                totalRev += o.total;
-                totalProf += (o.profit || 0);
-                html += `
-                <div class="history-card">
-                    <div class="history-del-btn" onclick="deleteOrder('${o.firebaseKey}')">退貨/刪除</div>
-                    <strong>【${o.pay}】總計: $${o.total}</strong> <small>(${o.d} ${o.t})</small><br>
-                    <span style="font-size:0.9em; color:#666;">內容: ${o.items.map(i=>`${i.n}x1`).join(', ')}</span>
-                    ${o.note ? `<br><small style="color:blue;">備註: ${o.note}</small>` : ''}
-                </div>`;
-            });
-            html = `<div style="background:#e8f5e9; padding:10px; border-radius:8px; margin-bottom:10px;">
-                        <b>總營收: $${totalRev}</b> | <b>預估毛利: $${totalProf}</b> | <b>單數: ${filtered.length}</b>
-                    </div>` + html;
-        }
-        resultArea.innerHTML = html;
-    }
-
-    function deleteOrder(key) {
-        if(!checkPermission()) return;
-        if(!db) return alert("本地模式不支援刪除");
-        if(confirm("確定要執行退貨並刪除此紀錄嗎？(注意：此動作不會自動補回庫存，需手動調整)")) {
-            db.ref('orders').child(key).remove()
-              .then(() => alert("已刪除紀錄"))
-              .catch(e => alert("刪除失敗"));
-        }
-    }
-
-    function renderStatTable() {
-        const stats = {};
-        orders.forEach(o => {
-            o.items.forEach(it => {
-                if(it.id === "支出") return;
-                if(!stats[it.n]) stats[it.n] = { qty: 0, amt: 0 };
-                stats[it.n].qty += 1;
-                stats[it.n].amt += it.p;
-            });
-        });
-
-        const sorted = Object.entries(stats).sort((a,b) => b[1].qty - a[1].qty);
-        document.getElementById('stat-tbody').innerHTML = sorted.map(([name, data]) => `
-            <tr>
-                <td style="text-align:left;">${name}</td>
-                <td>${data.qty}</td>
-                <td>$${data.amt}</td>
-            </tr>
-        `).join('');
-    }
-
-    function checkNewCat(val) {
-        if(val === "ADD") { 
-            if(!checkPermission()) { document.getElementById('select-cat').selectedIndex = 0; return; }
-            const n = prompt("請輸入新分類名稱："); 
-            if(n) { 
-                inv.push({cat: n, items: []}); 
-                syncToDB();
-            }
-            document.getElementById('select-cat').selectedIndex = 0;
-        }
-    }
-
-    function deleteCategory(ci) {
-        if(!checkPermission()) return;
-        if(confirm(`⚠️ 確定要刪除「${inv[ci].cat}」及其所有商品？`)) {
-            inv.splice(ci, 1);
-            if(inv.length === 0) inv = [{cat: "預設分類", items: []}]; 
-            syncToDB();
-        }
-    }
-
-    function editCategoryName(ci) {
-        if(!checkPermission()) return;
-        const n = prompt("請修改分類名稱：", inv[ci].cat);
-        if (n) { inv[ci].cat = n; syncToDB(); }
-    }
-
-    function updateCatSelect() {
-        const sel = document.getElementById('select-cat');
-        if(sel) {
-            sel.innerHTML = inv.map(c => `<option value="${c.cat}">${c.cat}</option>`).join('') + 
-                           `<option value="ADD">➕ 新增分類</option>`;
-        }
-    }
-
-    function renderAdminTable() {
-        let html = '';
-        inv.forEach((cat, ci) => {
-            html += `<tr id="ac${ci}" style="background:#eee;">
-                <td colspan="6" style="text-align:left; padding:10px;">
-                    <b>📂 ${cat.cat}</b>
-                    <button class="edit-cat-btn" onclick="editCategoryName(${ci})">✏️</button>
-                    <button class="del-cat-btn" onclick="deleteCategory(${ci})">🗑️</button>
-                </td>
-            </tr>`;
-            (cat.items || []).forEach((it, ii) => {
-                html += `<tr>
-                    <td><span onclick="move(${ci},${ii},-1)" style="cursor:pointer">↑</span> <span onclick="move(${ci},${ii},1)" style="cursor:pointer">↓</span></td>
-                    <td style="text-align:left;"><input type="text" value="${it.n}" onchange="editItem(${ci},${ii},'n',this.value)" class="admin-input-large"></td>
-                    <td><input type="number" value="${it.c}" onchange="editItem(${ci},${ii},'c',this.value)" style="width:50px;"></td>
-                    <td><input type="number" value="${it.p}" onchange="editItem(${ci},${ii},'p',this.value)" style="width:50px;"></td>
-                    <td><input type="number" value="${it.s}" onchange="editItem(${ci},${ii},'s',this.value)" style="width:50px;"></td>
-                    <td><span onclick="delP(${ci},${ii})" class="del-x">✕</span></td>
-                </tr>`;
-            });
-        });
-        document.getElementById('admin-tbody').innerHTML = html;
-    }
-
-    function addNewProduct() {
-        if(!checkPermission()) return;
-        const catN = document.getElementById('select-cat').value;
-        const id = document.getElementById('new-id').value, n = document.getElementById('new-n').value;
-        const c = Number(document.getElementById('new-c').value), p = Number(document.getElementById('new-p').value), s = Number(document.getElementById('new-s').value);
-        if(!n || !catN || catN === "ADD") return alert("請填寫品名並選擇分類");
+    function submitOrder() {
+        if(!cart.length) return;
+        const total = Number(document.getElementById('final-total').innerText);
+        const backdateMode = document.getElementById('backdate-mode').checked;
+        const manualDate = document.getElementById('manual-date').value;
+        const dateObj = (backdateMode && manualDate) ? new Date(manualDate) : new Date();
         
-        const category = inv.find(v => v.cat === catN);
-        if(category) {
-            if(!category.items) category.items = [];
-            category.items.push({id: id || Date.now().toString().slice(-4), n, c, p, s});
-            syncToDB();
-            ['new-id','new-n','new-c','new-p','new-s'].forEach(f => document.getElementById(f).value='');
+        const orderData = { 
+            t: new Date().toLocaleTimeString('zh-TW', {hour12:false}), 
+            d: dateObj.toLocaleDateString('zh-TW'),
+            total, 
+            profit: total - cart.reduce((a,b)=>a+(b.c||0), 0), 
+            pay: currentPay, 
+            items: [...cart], 
+            discount: Number(document.getElementById('discount').value || 0), 
+            note: document.getElementById('discount-note').value 
+        };
+        
+        cart.forEach(item => { 
+            inv.forEach(c => (c.items || []).forEach(i => { if(i.id === item.id) i.s--; })); 
+        });
+        
+        if(db) {
+            db.ref('orders').push(orderData);
+            db.ref('inventory').set(inv);
+            alert("結帳成功！已同步至 Firebase");
+        } else {
+            orders.unshift(orderData);
+            alert("本地結帳成功！(未連接 Firebase)");
+            updateLog();
         }
+        
+        cart=[]; 
+        document.getElementById('discount').value = '';
+        document.getElementById('discount-note').value = '';
+        document.getElementById('cash-in').value = '';
+        renderCart(); 
+        syncToDB();
     }
 
     function addCart(id) {
@@ -510,47 +396,6 @@
         document.getElementById('btn-elec').className = m==='電支'?'pay-btn active':'pay-btn';
     }
 
-    function submitOrder() {
-        if(!cart.length) return;
-        const total = Number(document.getElementById('final-total').innerText);
-        const backdateMode = document.getElementById('backdate-mode').checked;
-        const manualDate = document.getElementById('manual-date').value;
-        
-        const dateObj = (backdateMode && manualDate) ? new Date(manualDate) : new Date();
-        
-        const orderData = { 
-            t: new Date().toLocaleTimeString('zh-TW', {hour12:false}), 
-            d: dateObj.toLocaleDateString('zh-TW'),
-            total, 
-            profit: total - cart.reduce((a,b)=>a+(b.c||0), 0), 
-            pay: currentPay, 
-            items: [...cart], 
-            discount: Number(document.getElementById('discount').value || 0), 
-            note: document.getElementById('discount-note').value 
-        };
-        
-        cart.forEach(item => { 
-            inv.forEach(c => (c.items || []).forEach(i => { if(i.id === item.id) i.s--; })); 
-        });
-        
-        if(db && firebaseConfig.apiKey !== "AIzaSyDhlOCX87xJogdygxu8tjJP0WxifgiwCz8") {
-            db.ref('orders').push(orderData);
-            db.ref('inventory').set(inv);
-            alert("結帳成功！已同步至 Firebase");
-        } else {
-            orders.unshift(orderData);
-            alert("本地結帳成功！(未連接 Firebase)");
-            updateLog();
-        }
-        
-        cart=[]; 
-        document.getElementById('discount').value = '';
-        document.getElementById('discount-note').value = '';
-        document.getElementById('cash-in').value = '';
-        renderCart(); 
-        syncToDB();
-    }
-
     function addExtraCost() {
         const amount = prompt("請輸入支出金額：");
         if (!amount || isNaN(amount)) return;
@@ -559,58 +404,168 @@
         renderCart();
     }
 
+    function searchHistory(mode) {
+        const resultArea = document.getElementById('history-result-area');
+        let filtered = [];
+        let title = "";
+        if(mode === 'day') {
+            const date = document.getElementById('search-date').value;
+            if(!date) return alert("請選擇日期");
+            const dateStr = new Date(date).toLocaleDateString('zh-TW');
+            filtered = orders.filter(o => o.d === dateStr);
+            title = `📅 ${dateStr} 交易紀錄`;
+        } else {
+            const month = document.getElementById('search-month').value; 
+            if(!month) return alert("請選擇月份");
+            filtered = orders.filter(o => {
+                const parts = o.d.split('/');
+                const oMonth = `${parts[0]}-${parts[1].padStart(2,'0')}`;
+                return oMonth === month;
+            });
+            title = `📊 ${month} 月度統計`;
+        }
+        let totalRev = 0, totalProf = 0;
+        let html = `<h3>${title}</h3>`;
+        if(filtered.length === 0) {
+            html += "<p>此時段無資料</p>";
+        } else {
+            filtered.forEach(o => {
+                totalRev += o.total;
+                totalProf += (o.profit || 0);
+                html += `
+                <div class="history-card">
+                    <div class="history-del-btn" onclick="deleteOrder('${o.firebaseKey}')">退貨/刪除</div>
+                    <strong>【${o.pay}】總計: $${o.total}</strong> <small>(${o.d} ${o.t})</small><br>
+                    <span style="font-size:0.9em; color:#666;">內容: ${o.items.map(i=>`${i.n}x1`).join(', ')}</span>
+                </div>`;
+            });
+            html = `<div style="background:#e8f5e9; padding:10px; border-radius:8px; margin-bottom:10px;">
+                        <b>總營收: $${totalRev}</b> | <b>預估毛利: $${totalProf}</b> | <b>單數: ${filtered.length}</b>
+                    </div>` + html;
+        }
+        resultArea.innerHTML = html;
+    }
+
+    function deleteOrder(key) {
+        if(!checkPermission()) return;
+        if(!db) return alert("本地模式不支援刪除");
+        if(confirm("確定要執行退貨嗎？")) {
+            db.ref('orders').child(key).remove().then(() => alert("已刪除紀錄")).catch(e => alert("刪除失敗"));
+        }
+    }
+
+    function renderStatTable() {
+        const stats = {};
+        orders.forEach(o => {
+            o.items.forEach(it => {
+                if(it.id === "支出") return;
+                if(!stats[it.n]) stats[it.n] = { qty: 0, amt: 0 };
+                stats[it.n].qty += 1;
+                stats[it.n].amt += it.p;
+            });
+        });
+        const sorted = Object.entries(stats).sort((a,b) => b[1].qty - a[1].qty);
+        document.getElementById('stat-tbody').innerHTML = sorted.map(([name, data]) => `
+            <tr><td style="text-align:left;">${name}</td><td>${data.qty}</td><td>$${data.amt}</td></tr>
+        `).join('');
+    }
+
+    function checkNewCat(val) {
+        if(val === "ADD") { 
+            if(!checkPermission()) { document.getElementById('select-cat').selectedIndex = 0; return; }
+            const n = prompt("請輸入新分類名稱："); 
+            if(n) { inv.push({cat: n, items: []}); syncToDB(); }
+            document.getElementById('select-cat').selectedIndex = 0;
+        }
+    }
+
+    function updateCatSelect() {
+        const sel = document.getElementById('select-cat');
+        if(sel) {
+            sel.innerHTML = inv.map(c => `<option value="${c.cat}">${c.cat}</option>`).join('') + 
+                           `<option value="ADD">➕ 新增分類</option>`;
+        }
+    }
+
+    function renderAdminTable() {
+        let html = '';
+        inv.forEach((cat, ci) => {
+            html += `<tr id="ac${ci}" style="background:#eee;"><td colspan="6" style="text-align:left; padding:10px;"><b>📂 ${cat.cat}</b></td></tr>`;
+            (cat.items || []).forEach((it, ii) => {
+                html += `<tr>
+                    <td><span onclick="move(${ci},${ii},-1)" style="cursor:pointer">↑</span></td>
+                    <td style="text-align:left;"><input type="text" value="${it.n}" onchange="editItem(${ci},${ii},'n',this.value)" class="admin-input-large"></td>
+                    <td><input type="number" value="${it.c}" onchange="editItem(${ci},${ii},'c',this.value)" style="width:50px;"></td>
+                    <td><input type="number" value="${it.p}" onchange="editItem(${ci},${ii},'p',this.value)" style="width:50px;"></td>
+                    <td><input type="number" value="${it.s}" onchange="editItem(${ci},${ii},'s',this.value)" style="width:50px;"></td>
+                    <td><span onclick="delP(${ci},${ii})" class="del-x">✕</span></td>
+                </tr>`;
+            });
+        });
+        document.getElementById('admin-tbody').innerHTML = html;
+    }
+
+    function addNewProduct() {
+        if(!checkPermission()) return;
+        const catN = document.getElementById('select-cat').value;
+        const id = document.getElementById('new-id').value, n = document.getElementById('new-n').value;
+        const c = Number(document.getElementById('new-c').value), p = Number(document.getElementById('new-p').value), s = Number(document.getElementById('new-s').value);
+        if(!n || !catN || catN === "ADD") return alert("請填寫品名並選擇分類");
+        const category = inv.find(v => v.cat === catN);
+        if(category) {
+            if(!category.items) category.items = [];
+            category.items.push({id: id || Date.now().toString().slice(-4), n, c, p, s});
+            syncToDB();
+            ['new-id','new-n','new-c','new-p','new-s'].forEach(f => document.getElementById(f).value='');
+        }
+    }
+
     function editItem(ci, ii, k, v) { 
-        if(!checkPermission()) { renderAdminTable(); return; }
+        if(!checkPermission()) return;
         inv[ci].items[ii][k] = (k==='n'?v:Number(v)); 
         syncToDB(); 
     }
     
-    function move(ci, ii, dir) { 
-        if(!checkPermission()) return;
-        let items = inv[ci].items; 
-        if(ii+dir>=0 && ii+dir<items.length){ [items[ii], items[ii+dir]]=[items[ii+dir], items[ii]]; renderAdminTable(); syncToDB(); }
-    }
     function delP(ci, ii) { 
         if(!checkPermission()) return;
         if(confirm("確定刪除商品？")){ inv[ci].items.splice(ii,1); syncToDB(); } 
     }
-    
+
     function toggleAdmin() { 
         if(!checkPermission()) return;
         const p = document.getElementById('admin-panel'); 
         p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; 
         if(p.style.display === 'flex') renderAdminTable(); 
     }
+
     function toggleHistory() { 
         if(!checkPermission()) return;
         const p = document.getElementById('history-panel'); 
         p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; 
     }
-    
-    function jumpToAdminCat(val) { if(val) document.getElementById(val).scrollIntoView({behavior: "smooth"}); }
-    
-    function backupData() {
-        if(!checkPermission()) return;
-        const blob = new Blob([JSON.stringify({inv, orders}, null, 2)], { type: "application/json" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `LittleNook_Backup_${new Date().toLocaleDateString()}.json`; a.click();
-    }
 
-    function exportToExcel() {
-        if(!checkPermission()) return;
-        const data = orders.map(o => ({
-            "日期": o.d, "時間": o.t, "總額": o.total, "毛利": o.profit, "支付方式": o.pay, "備註": o.note, "商品明細": o.items.map(i=>i.n).join(',')
-        }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Sales");
-        XLSX.writeFile(wb, `Sales_Export_${new Date().toLocaleDateString()}.xlsx`);
-    }
+    function jumpToAdminCat(val) { if(val) document.getElementById(val).scrollIntoView({behavior: "smooth"}); }
 
     function syncOfflineData() {
         if(db) {
             db.ref('inventory').set(inv);
-            alert("手動同步完成");
+            alert("雲端同步指令已發送");
+        } else {
+            alert("Firebase 未連線，無法同步");
         }
+    }
+
+    function backupData() {
+        const blob = new Blob([JSON.stringify({inv, orders}, null, 2)], { type: "application/json" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `Backup_${new Date().toLocaleDateString()}.json`; a.click();
+    }
+
+    function exportToExcel() {
+        const data = orders.map(o => ({ "日期": o.d, "總額": o.total, "支付": o.pay, "備註": o.note }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sales");
+        XLSX.writeFile(wb, `Sales_${new Date().toLocaleDateString()}.xlsx`);
     }
 </script>
 </body>
